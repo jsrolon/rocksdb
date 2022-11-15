@@ -4905,16 +4905,19 @@ class Benchmark {
     Iterator* iter = db->NewIterator(options);
     int64_t i = 0;
     int64_t bytes = 0;
-    for (iter->SeekToFirst(); i < reads_ && iter->Valid(); iter->Next()) {
-      bytes += iter->key().size() + iter->value().size();
-      thread->stats.FinishedOps(nullptr, db, 1, kRead);
-      ++i;
+    Duration duration(reads_, reads_);
+    while (!duration.Done(1)) {
+      for (iter->SeekToFirst(); i < reads_ && iter->Valid(); iter->Next()) {
+        bytes += iter->key().size() + iter->value().size();
+        thread->stats.FinishedOps(nullptr, db, 1, kRead);
+        ++i;
 
-      if (thread->shared->read_rate_limiter.get() != nullptr &&
-          i % 1024 == 1023) {
-        thread->shared->read_rate_limiter->Request(1024, Env::IO_HIGH,
-                                                   nullptr /* stats */,
-                                                   RateLimiter::OpType::kRead);
+        if (thread->shared->read_rate_limiter.get() != nullptr &&
+            i % 1024 == 1023) {
+          thread->shared->read_rate_limiter->Request(1024, Env::IO_HIGH,
+                                                    nullptr /* stats */,
+                                                    RateLimiter::OpType::kRead);
+        }
       }
     }
 
