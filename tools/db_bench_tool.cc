@@ -4902,13 +4902,14 @@ class Benchmark {
       options.timestamp = &ts;
     }
 
-    Iterator* iter = db->NewIterator(options);
     int64_t i = 0;
     int64_t bytes = 0;
-    Duration duration(reads_, reads_);
-    while (!duration.Done(1)) {
-      for (iter->SeekToFirst(); i < reads_ && iter->Valid(); iter->Next()) {
-        bytes += iter->key().size() + iter->value().size();
+    Duration duration(FLAGS_duration, reads_);
+    bool done = false;
+    do {
+      Iterator* iter = db->NewIterator(options);
+      for (iter->SeekToFirst(); !(done = duration.Done(100)) && iter->Valid(); iter->Next()) {
+	bytes += iter->key().size() + iter->value().size();
         thread->stats.FinishedOps(nullptr, db, 1, kRead);
         ++i;
 
@@ -4919,9 +4920,9 @@ class Benchmark {
                                                     RateLimiter::OpType::kRead);
         }
       }
-    }
+      delete iter;
+    } while (!done);
 
-    delete iter;
     thread->stats.AddBytes(bytes);
     if (FLAGS_perf_level > ROCKSDB_NAMESPACE::PerfLevel::kDisable) {
       thread->stats.AddMessage(std::string("PERF_CONTEXT:\n") +
